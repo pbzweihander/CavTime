@@ -1,6 +1,8 @@
 import { ArrowDownIcon } from "@heroicons/react/24/solid";
+import classNames from "classnames";
 import { DateTime } from "luxon";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
 const tzNames = Object.keys(tzdata.zones)
@@ -17,9 +19,57 @@ const days = [
 ];
 
 export default function App() {
-  const [time, setTime] = useState(1700);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const localnow = DateTime.local().setZone("UTC");
+  const defaultTime = localnow.hour * 100;
+  const paramTimeMaybe = searchParams.get("zulu");
+  let paramTime = undefined;
+  if (paramTimeMaybe !== null && /^\d+$/.test(paramTimeMaybe)) {
+    paramTime = parseInt(paramTimeMaybe);
+    if (isNaN(paramTime) || paramTime < 0 || paramTime >= 2400) {
+      paramTime = undefined;
+    }
+  }
+  const [time, setTimeOrig] = useState(paramTime ?? defaultTime);
+  const setTime = useCallback(
+    (newTime: number) => {
+      setTimeOrig(newTime);
+      setSearchParams((params) => {
+        params.set("zulu", `${newTime}`);
+        return params;
+      });
+    },
+    [setSearchParams, setTimeOrig],
+  );
+
   const [timeStr, setTimeStr] = useState(time.toString());
-  const [day, setDay] = useState<number | undefined>(undefined);
+
+  const paramDayMaybe = searchParams.get("day");
+  let paramDay = undefined;
+  if (paramDayMaybe !== null) {
+    paramDay = parseInt(paramDayMaybe);
+    if (paramDay < 0 || paramDay >= days.length) {
+      paramDay = undefined;
+    }
+  }
+  const [day, setDayOrig] = useState<number | undefined>(paramDay);
+  const setDay = useCallback(
+    (newDay: number | undefined) => {
+      setDayOrig(newDay);
+      setSearchParams((params) => {
+        if (newDay !== undefined) {
+          params.set("day", `${newDay}`);
+        } else {
+          params.delete("day");
+        }
+        return params;
+      });
+    },
+    [setSearchParams, setDayOrig],
+  );
+
+  const [isTimeError, setIsTimeError] = useState(false);
 
   const [tz, setTz] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -28,7 +78,7 @@ export default function App() {
   const localtime = time + (tzoffset / 60) * 100;
   let dayStr;
   let localtimeNormalized;
-  if (localtime > 2400) {
+  if (localtime >= 2400) {
     if (day !== undefined) {
       dayStr = days[(day + 1) % days.length];
     } else {
@@ -62,22 +112,35 @@ export default function App() {
   const [tzStr, setTzStr] = useState(tz);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-200 lg:py-10">
-      <div className="h-full w-full rounded bg-slate-100 p-4 md:h-[300px] md:w-2/3 lg:w-1/3">
+    <div className="flex h-screen w-screen items-center justify-center bg-base-200 lg:py-10">
+      <div className="h-full w-full rounded bg-base-100 p-4 md:h-[300px] md:w-2/3 lg:w-1/3">
         <div className="flex gap-2">
           <div className="w-[100px]">
             <label className="label label-text">Time</label>
-            <label className="input input-bordered flex items-center gap-2">
+            <label
+              className={classNames(
+                "input input-bordered flex items-center gap-2",
+                isTimeError && "input-error",
+              )}
+            >
               <input
                 type="text"
                 className="w-full"
                 value={timeStr}
                 onChange={(e) => {
                   const value = e.target.value;
-                  const valueInt = parseInt(e.target.value);
+                  const valueInt = parseInt(value);
                   setTimeStr(value);
-                  if (!isNaN(valueInt)) {
+                  if (
+                    /^\d+$/.test(value) &&
+                    !isNaN(valueInt) &&
+                    valueInt >= 0 &&
+                    valueInt < 2400
+                  ) {
                     setTime(valueInt);
+                    setIsTimeError(false);
+                  } else {
+                    setIsTimeError(true);
                   }
                 }}
               />
@@ -85,20 +148,23 @@ export default function App() {
             </label>
           </div>
           <div className="w-[150px]">
-            <label className="label label-text">Day</label>
+            <div className="label">
+              <span className="label-text">Day</span>
+              <span className="label-text-alt text-xs">(Optional)</span>
+            </div>
             <select
               className="select select-bordered w-full"
               value={day === undefined ? "None" : days[day]}
               onChange={(e) => {
                 const value = e.target.value;
-                if (value === "None") {
+                if (value === "") {
                   setDay(undefined);
                 } else {
                   setDay(days.indexOf(e.target.value));
                 }
               }}
             >
-              <option>None</option>
+              <option></option>
               <option>Monday</option>
               <option>Tuesday</option>
               <option>Wednesday</option>
@@ -112,30 +178,28 @@ export default function App() {
         <div className="divider">
           <ArrowDownIcon className="w-10" />
         </div>
-        <div className="mb-1 px-2 text-lg font-bold">
-          {localtimeStr} {dayStr}
+        <div className="mb-2 px-3 text-lg font-bold">
+          {localtimeStr} {dayStr} in {tzStr}
         </div>
-        <div className="input input-bordered flex w-full items-center">
-          <label className="mr-2">in</label>
-          <input
-            type="text"
-            className="grow"
-            list="tz-names"
-            value={tzStr}
-            onChange={(e) => {
-              const newTzName = e.target.value;
-              setTzStr(newTzName);
-              if (DateTime.local().setZone(newTzName).isValid) {
-                setTz(newTzName);
-              }
-            }}
-          />
-          <datalist id="tz-names">
-            {tzNames.map((tzName) => (
-              <option key={tzName} value={tzName} />
-            ))}
-          </datalist>
-        </div>
+        <label className="label label-text">Change timezone</label>
+        <input
+          type="text"
+          className="input input-bordered w-full"
+          list="tz-names"
+          value={tzStr}
+          onChange={(e) => {
+            const newTzName = e.target.value;
+            setTzStr(newTzName);
+            if (DateTime.local().setZone(newTzName).isValid) {
+              setTz(newTzName);
+            }
+          }}
+        />
+        <datalist id="tz-names">
+          {tzNames.map((tzName) => (
+            <option key={tzName} value={tzName} />
+          ))}
+        </datalist>
       </div>
     </div>
   );
