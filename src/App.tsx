@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
 import Logo from "./Logo";
+import GitHubMark from "./github-mark.svg?react";
 
 const tzNames = Object.keys(tzdata.zones)
   .filter((tz) => tz.includes("/") && DateTime.local().setZone(tz).isValid)
@@ -177,6 +178,10 @@ export default function App() {
               <option>Sunday</option>
             </select>
           </div>
+          <span className="grow" />
+          <a href="https://github.com/pbzweihander/CavTime">
+            <GitHubMark className="m-2 h-10 w-10" />
+          </a>
         </div>
         <div className="divider">
           <ArrowDownIcon className="w-10" />
