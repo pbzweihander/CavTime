@@ -1,7 +1,8 @@
+import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime } from "luxon";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
@@ -22,6 +23,11 @@ const days = [
 ];
 
 export default function App() {
+  const [theme, setTheme] = useState(localStorage.getItem("theme") ?? "light");
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   const localnow = DateTime.local().setZone("UTC");
@@ -118,7 +124,7 @@ export default function App() {
     <div className="flex h-screen w-screen items-center justify-center bg-base-200 lg:py-10">
       <Logo className="absolute left-8 top-0 hidden md:block md:w-[100px] lg:left-12 lg:top-4 lg:w-[200px]" />
       <a
-        className="absolute right-2 top-2 hidden h-fit rounded-full bg-white md:block"
+        className="absolute right-2 top-2 hidden h-fit rounded-full bg-slate-200 md:block"
         href="https://github.com/pbzweihander/CavTime"
       >
         <GitHubMark className="m-2 h-10 w-10" />
@@ -184,6 +190,24 @@ export default function App() {
               <option>Sunday</option>
             </select>
           </div>
+          <span className="grow" />
+          <label className="swap swap-rotate h-fit">
+            <input
+              type="checkbox"
+              className="theme-controller"
+              value="dark"
+              checked={theme === "dark"}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setTheme("dark");
+                } else {
+                  setTheme("light");
+                }
+              }}
+            />
+            <MoonIcon className="swap-on w-10" />
+            <SunIcon className="swap-off w-10" />
+          </label>
         </div>
         <label className="label label-text">In Timezone</label>
         <input
