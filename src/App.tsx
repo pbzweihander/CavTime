@@ -2,7 +2,7 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime } from "luxon";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
@@ -22,6 +22,80 @@ const days = [
   "Sunday",
 ];
 
+function getTimezoneOffset(tz: string): number {
+  return DateTime.local().setZone(tz).offset / 60;
+}
+
+function formatNumberWithSign(n: number): string {
+  if (n > 0) {
+    return `+${n}`;
+  } else {
+    return `${n}`;
+  }
+}
+
+function parseTime(s: string | undefined | null): number | undefined {
+  if (s != null && /^\d+$/.test(s)) {
+    const n = parseInt(s);
+    if (!isNaN(n) && n >= 0 && n < 2400) {
+      return n;
+    }
+  }
+  return undefined;
+}
+
+function parseDayIndex(s: string | undefined | null): number | undefined {
+  if (s != null && /^\d+$/.test(s)) {
+    const n = parseInt(s);
+    if (!isNaN(n) && n >= 0 && n < days.length) {
+      return n;
+    }
+  }
+  return undefined;
+}
+
+function makeDayStr(dayIndex: number | undefined, localtime: number): string {
+  if (localtime >= 2400) {
+    if (dayIndex !== undefined) {
+      return days[(dayIndex + 1) % days.length];
+    } else {
+      return "the day after";
+    }
+  } else if (localtime < 0) {
+    if (dayIndex !== undefined) {
+      return days[((dayIndex - 1) % days.length) + days.length];
+    } else {
+      return "the day before";
+    }
+  } else {
+    if (dayIndex !== undefined) {
+      return days[dayIndex];
+    } else {
+      return "";
+    }
+  }
+}
+
+function makeLocaltimeStr(localtime: number): string {
+  let localtimeNormalized;
+  if (localtime >= 2400) {
+    localtimeNormalized = localtime % 2400;
+  } else if (localtime < 0) {
+    localtimeNormalized = (localtime % 2400) + 2400;
+  } else {
+    localtimeNormalized = localtime;
+  }
+  if (localtimeNormalized < 10) {
+    return `000${localtimeNormalized}`;
+  } else if (localtimeNormalized < 100) {
+    return `00${localtimeNormalized}`;
+  } else if (localtimeNormalized < 1000) {
+    return `0${localtimeNormalized}`;
+  } else {
+    return `${localtimeNormalized}`;
+  }
+}
+
 export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") ?? "light");
   useEffect(() => {
@@ -32,91 +106,42 @@ export default function App() {
 
   const localnow = DateTime.local().setZone("UTC");
   const defaultTime = localnow.hour * 100;
-  const paramTimeMaybe = searchParams.get("zulu");
-  let paramTime = undefined;
-  if (paramTimeMaybe !== null && /^\d+$/.test(paramTimeMaybe)) {
-    paramTime = parseInt(paramTimeMaybe);
-    if (isNaN(paramTime) || paramTime < 0 || paramTime >= 2400) {
-      paramTime = undefined;
-    }
-  }
-  const [time, setTimeOrig] = useState(paramTime ?? defaultTime);
-  const setTime = useCallback(
-    (newTime: number) => {
-      setTimeOrig(newTime);
-      setSearchParams((params) => {
-        params.set("zulu", `${newTime}`);
-        return params;
-      });
-    },
-    [setSearchParams, setTimeOrig],
+  const [time, setTime] = useState(
+    parseTime(searchParams.get("zulu")) ?? defaultTime,
   );
+  useEffect(() => {
+    setSearchParams((params) => {
+      params.set("zulu", `${time}`);
+      return params;
+    });
+  }, [setSearchParams, time]);
 
   const [timeStr, setTimeStr] = useState(time.toString());
 
-  const paramDayMaybe = searchParams.get("day");
-  let paramDay = undefined;
-  if (paramDayMaybe !== null) {
-    paramDay = parseInt(paramDayMaybe);
-    if (paramDay < 0 || paramDay >= days.length) {
-      paramDay = undefined;
-    }
-  }
-  const [day, setDayOrig] = useState<number | undefined>(paramDay);
-  const setDay = useCallback(
-    (newDay: number | undefined) => {
-      setDayOrig(newDay);
-      setSearchParams((params) => {
-        if (newDay !== undefined) {
-          params.set("day", `${newDay}`);
-        } else {
-          params.delete("day");
-        }
-        return params;
-      });
-    },
-    [setSearchParams, setDayOrig],
+  const [dayIndex, setDayIndex] = useState<number | undefined>(
+    parseDayIndex(searchParams.get("day")),
   );
+  useEffect(() => {
+    setSearchParams((params) => {
+      if (dayIndex !== undefined) {
+        params.set("day", `${dayIndex}`);
+      } else {
+        params.delete("day");
+      }
+      return params;
+    });
+  }, [setSearchParams, dayIndex]);
+  const day = dayIndex !== undefined ? days[dayIndex] : "";
 
   const [isTimeError, setIsTimeError] = useState(false);
 
   const [tz, setTz] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
-  const tzoffset = DateTime.local().setZone(tz).offset;
-  const localtime = time + (tzoffset / 60) * 100;
-  let dayStr;
-  let localtimeNormalized;
-  if (localtime >= 2400) {
-    if (day !== undefined) {
-      dayStr = days[(day + 1) % days.length];
-    } else {
-      dayStr = "the day after";
-    }
-    localtimeNormalized = localtime % 2400;
-  } else if (localtime < 0) {
-    if (day !== undefined) {
-      dayStr = days[((day - 1) % days.length) + days.length];
-    } else {
-      dayStr = "the day before";
-    }
-    localtimeNormalized = (localtime % 2400) + 2400;
-  } else {
-    if (day !== undefined) {
-      dayStr = days[day];
-    } else {
-      dayStr = "";
-    }
-    localtimeNormalized = localtime;
-  }
-  const localtimeStr =
-    localtimeNormalized < 10
-      ? `000${localtimeNormalized}`
-      : localtimeNormalized < 100
-        ? `00${localtimeNormalized}`
-        : localtimeNormalized < 1000
-          ? `0${localtimeNormalized}`
-          : `${localtimeNormalized}`;
+  const tzoffset = getTimezoneOffset(tz);
+  const localtime = time + tzoffset * 100;
+  const dayStr = makeDayStr(dayIndex, localtime);
+  const localtimeStr = makeLocaltimeStr(localtime);
 
   const tzSearchRef = useRef<HTMLDetailsElement>(null);
   const [tzSearch, setTzSearch] = useState("");
@@ -176,13 +201,13 @@ export default function App() {
             </div>
             <select
               className="select select-bordered w-full"
-              value={day === undefined ? "None" : days[day]}
+              value={day}
               onChange={(e) => {
                 const value = e.target.value;
                 if (value === "") {
-                  setDay(undefined);
+                  setDayIndex(undefined);
                 } else {
-                  setDay(days.indexOf(e.target.value));
+                  setDayIndex(days.indexOf(e.target.value));
                 }
               }}
             >
@@ -220,7 +245,7 @@ export default function App() {
           <summary className="btn btn-ghost w-full justify-start rounded-md border border-base-content/20 text-base font-normal">
             <span>{tz}</span>
             <span className="grow" />
-            <span>{tzoffset / 60}</span>
+            <span>{formatNumberWithSign(tzoffset)}</span>
           </summary>
           <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
             <input
@@ -245,7 +270,7 @@ export default function App() {
                       <span>{tzName}</span>
                       <span className="grow" />
                       <span>
-                        {DateTime.local().setZone(tzName).offset / 60}
+                        {formatNumberWithSign(getTimezoneOffset(tzName))}
                       </span>
                     </button>
                   </li>
@@ -261,7 +286,7 @@ export default function App() {
         <div className="divider" />
         <div className="flex items-center">
           <div>
-            {time}Z {day !== undefined && days[day]}
+            {time}Z {day}
           </div>
           <div className="divider divider-horizontal">
             <ArrowRightIcon className="w-16" />
