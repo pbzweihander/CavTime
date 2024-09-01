@@ -2,7 +2,7 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime } from "luxon";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
@@ -118,7 +118,8 @@ export default function App() {
           ? `0${localtimeNormalized}`
           : `${localtimeNormalized}`;
 
-  const [tzStr, setTzStr] = useState(tz);
+  const tzSearchRef = useRef<HTMLDetailsElement>(null);
+  const [tzSearch, setTzSearch] = useState("");
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-base-200 lg:py-10">
@@ -215,19 +216,43 @@ export default function App() {
           </label>
         </div>
         <label className="label label-text">In Timezone</label>
-        <input
-          type="text"
-          className="input input-bordered w-full"
-          list="tz-names"
-          value={tzStr}
-          onChange={(e) => {
-            const newTzName = e.target.value;
-            setTzStr(newTzName);
-            if (DateTime.local().setZone(newTzName).isValid) {
-              setTz(newTzName);
-            }
-          }}
-        />
+        <details ref={tzSearchRef} className="dropdown mb-1 w-full">
+          <summary className="btn btn-ghost w-full justify-start rounded-md border border-base-content/20 text-base font-normal">
+            <span>{tz}</span>
+            <span className="grow" />
+            <span>{tzoffset / 60}</span>
+          </summary>
+          <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
+            <input
+              type="text"
+              className="input input-sm input-bordered mb-1 w-full"
+              value={tzSearch}
+              onChange={(e) => {
+                setTzSearch(e.target.value);
+              }}
+            />
+            <ul className="menu max-h-[30vh] flex-row overflow-y-scroll">
+              {tzNames
+                .filter((tzName) => tzName.toLowerCase().indexOf(tzSearch) > -1)
+                .map((tzName) => (
+                  <li key={tzName} className="w-full">
+                    <button
+                      onClick={() => {
+                        setTz(tzName);
+                        tzSearchRef.current?.removeAttribute("open");
+                      }}
+                    >
+                      <span>{tzName}</span>
+                      <span className="grow" />
+                      <span>
+                        {DateTime.local().setZone(tzName).offset / 60}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </details>
         <datalist id="tz-names">
           {tzNames.map((tzName) => (
             <option key={tzName} value={tzName} />
@@ -242,7 +267,7 @@ export default function App() {
             <ArrowRightIcon className="w-16" />
           </div>
           <div className="text-lg font-bold">
-            {localtimeStr} {dayStr} in {tzStr}
+            {localtimeStr} {dayStr} in {tz}
           </div>
         </div>
       </div>
