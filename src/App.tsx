@@ -135,9 +135,8 @@ export default function App() {
 
   const [isTimeError, setIsTimeError] = useState(false);
 
-  const [tz, setTz] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
-  );
+  const localtz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [tz, setTz] = useState(localtz);
   const tzoffset = getTimezoneOffset(tz);
   const localtime = time + tzoffset * 100;
   const dayStr = makeDayStr(dayIndex, localtime);
@@ -241,43 +240,55 @@ export default function App() {
           </label>
         </div>
         <label className="label label-text">In Timezone</label>
-        <details ref={tzSearchRef} className="dropdown mb-1 w-full">
-          <summary className="btn btn-ghost w-full justify-start rounded-md border border-base-content/20 text-base font-normal">
-            <span>{tz}</span>
-            <span className="grow" />
-            <span>{formatNumberWithSign(tzoffset)}</span>
-          </summary>
-          <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
-            <input
-              type="text"
-              className="input input-sm input-bordered mb-1 w-full"
-              value={tzSearch}
-              onChange={(e) => {
-                setTzSearch(e.target.value);
-              }}
-            />
-            <ul className="menu max-h-[30vh] flex-row overflow-y-scroll">
-              {tzNames
-                .filter((tzName) => tzName.toLowerCase().indexOf(tzSearch) > -1)
-                .map((tzName) => (
-                  <li key={tzName} className="w-full">
-                    <button
-                      onClick={() => {
-                        setTz(tzName);
-                        tzSearchRef.current?.removeAttribute("open");
-                      }}
-                    >
-                      <span>{tzName}</span>
-                      <span className="grow" />
-                      <span>
-                        {formatNumberWithSign(getTimezoneOffset(tzName))}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        </details>
+        <div className="flex">
+          <details ref={tzSearchRef} className="dropdown mb-1 mr-1 flex-1">
+            <summary className="btn btn-ghost w-full justify-start rounded-md border border-base-content/20 text-base font-normal">
+              <span>{tz}</span>
+              <span className="grow" />
+              <span>{formatNumberWithSign(tzoffset)}</span>
+            </summary>
+            <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
+              <input
+                type="text"
+                className="input input-sm input-bordered mb-1 w-full"
+                value={tzSearch}
+                onChange={(e) => {
+                  setTzSearch(e.target.value);
+                }}
+              />
+              <ul className="menu max-h-[30vh] flex-row overflow-y-scroll">
+                {tzNames
+                  .filter(
+                    (tzName) => tzName.toLowerCase().indexOf(tzSearch) > -1,
+                  )
+                  .map((tzName) => (
+                    <li key={tzName} className="w-full">
+                      <button
+                        onClick={() => {
+                          setTz(tzName);
+                          tzSearchRef.current?.removeAttribute("open");
+                        }}
+                      >
+                        <span>{tzName}</span>
+                        <span className="grow" />
+                        <span>
+                          {formatNumberWithSign(getTimezoneOffset(tzName))}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </details>
+          <button
+            className="btn"
+            onClick={() => {
+              setTz(localtz);
+            }}
+          >
+            Local
+          </button>
+        </div>
         <datalist id="tz-names">
           {tzNames.map((tzName) => (
             <option key={tzName} value={tzName} />
