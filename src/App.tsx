@@ -96,6 +96,13 @@ function makeLocaltimeStr(localtime: number): string {
   }
 }
 
+function isTimezoneValid(tz: string | undefined | null): boolean {
+  if (tz == null || tz.length === 0) {
+    return false;
+  }
+  return DateTime.local().setZone(tz).isValid;
+}
+
 export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") ?? "light");
   useEffect(() => {
@@ -136,7 +143,14 @@ export default function App() {
   const [isTimeError, setIsTimeError] = useState(false);
 
   const localtz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [tz, setTz] = useState(localtz);
+  const paramTz = searchParams.get("tz") ?? "";
+  const [tz, setTz] = useState(isTimezoneValid(paramTz) ? paramTz : localtz);
+  useEffect(() => {
+    setSearchParams((params) => {
+      params.set("tz", tz);
+      return params;
+    });
+  }, [setSearchParams, tz]);
   const tzoffset = getTimezoneOffset(tz);
   const localtime = time + tzoffset * 100;
   const dayStr = makeDayStr(dayIndex, localtime);
