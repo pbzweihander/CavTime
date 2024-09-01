@@ -124,10 +124,15 @@ export default function App() {
     <div className="flex h-screen w-screen items-center justify-center bg-base-200 lg:py-10">
       <Logo className="absolute left-8 top-0 hidden md:block md:w-[100px] lg:left-12 lg:top-4 lg:w-[200px]" />
       <a
-        className="absolute right-2 top-2 hidden h-fit rounded-full bg-slate-400 md:block"
+        className="absolute right-2 top-2 hidden h-fit md:block"
         href="https://github.com/pbzweihander/CavTime"
       >
-        <GitHubMark className="m-2 h-10 w-10" />
+        <GitHubMark
+          className={classNames(
+            "m-2 h-10 w-10",
+            theme === "dark" ? "fill-[#fff]" : "fill-[#24292f]",
+          )}
+        />
       </a>
       <div className="h-full w-full rounded bg-base-100 p-4 md:h-fit md:w-2/3 lg:w-1/3">
         <div className="flex gap-2">
