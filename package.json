@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "prettier": "prettier --write --config .prettierrc.json index.html vite.config.ts './src/**/*.{ts,tsx,css}'",
-    "prettier:check": "prettier --check --config .prettierrc.json index.html vite.config.ts './src/**/*.{ts,tsx,css}'"
+    "prettier": "prettier --write --config .prettierrc.json eslint.config.js index.html postcss.config.js tailwind.config.js vite.config.ts './src/**/*.{ts,tsx,css}'",
+    "prettier:check": "prettier --check --config .prettierrc.json eslint.config.js index.html postcss.config.js tailwind.config.js vite.config.ts './src/**/*.{ts,tsx,css}'"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
