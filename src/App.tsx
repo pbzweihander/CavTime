@@ -1,4 +1,4 @@
-import { ArrowDownIcon } from "@heroicons/react/24/solid";
+import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime } from "luxon";
 import { useCallback, useState } from "react";
@@ -183,13 +183,7 @@ export default function App() {
             <GitHubMark className="m-2 h-10 w-10" />
           </a>
         </div>
-        <div className="divider">
-          <ArrowDownIcon className="w-10" />
-        </div>
-        <div className="mb-2 px-3 text-lg font-bold">
-          {localtimeStr} {dayStr} in {tzStr}
-        </div>
-        <label className="label label-text">Change timezone</label>
+        <label className="label label-text">In Timezone</label>
         <input
           type="text"
           className="input input-bordered w-full"
@@ -208,6 +202,18 @@ export default function App() {
             <option key={tzName} value={tzName} />
           ))}
         </datalist>
+        <div className="divider" />
+        <div className="flex items-center">
+          <div>
+            {time}Z {day !== undefined && days[day]}
+          </div>
+          <div className="divider divider-horizontal">
+            <ArrowRightIcon className="w-16" />
+          </div>
+          <div className="text-lg font-bold">
+            {localtimeStr} {dayStr} in {tzStr}
+          </div>
+        </div>
       </div>
     </div>
   );
