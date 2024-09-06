@@ -1,7 +1,7 @@
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
-import { DateTime } from "luxon";
+import { DateTime, WeekdayNumbers } from "luxon";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
@@ -12,7 +12,7 @@ import GitHubMark from "./github-mark.svg?react";
 const tzNames = Object.keys(tzdata.zones)
   .filter((tz) => tz.includes("/") && DateTime.local().setZone(tz).isValid)
   .sort((a, b) => (a < b ? -1 : 1));
-const days = [
+const weekdayStrs = [
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -44,55 +44,43 @@ function parseTime(s: string | undefined | null): number | undefined {
   return undefined;
 }
 
-function parseDayIndex(s: string | undefined | null): number | undefined {
-  if (s != null && /^\d+$/.test(s)) {
-    const n = parseInt(s);
-    if (!isNaN(n) && n >= 0 && n < days.length) {
-      return n;
-    }
+function parseDayIndex(
+  s: string | undefined | null,
+): WeekdayNumbers | undefined {
+  if (s === "1") {
+    return 1;
+  } else if (s === "2") {
+    return 2;
+  } else if (s === "3") {
+    return 3;
+  } else if (s === "4") {
+    return 4;
+  } else if (s === "5") {
+    return 5;
+  } else if (s === "6") {
+    return 6;
+  } else if (s === "7") {
+    return 7;
+  } else {
+    return undefined;
   }
-  return undefined;
 }
 
-function makeDayStr(dayIndex: number | undefined, localtime: number): string {
-  if (localtime >= 2400) {
-    if (dayIndex !== undefined) {
-      return days[(dayIndex + 1) % days.length];
-    } else {
+function makeDayStr(weekdayDiff: number): string {
+  if (weekdayDiff > 0) {
+    if (weekdayDiff === 1) {
       return "the day after";
-    }
-  } else if (localtime < 0) {
-    if (dayIndex !== undefined) {
-      return days[((dayIndex - 1) % days.length) + days.length];
     } else {
+      return `${weekdayDiff} days after`;
+    }
+  } else if (weekdayDiff < 0) {
+    if (weekdayDiff === -1) {
       return "the day before";
-    }
-  } else {
-    if (dayIndex !== undefined) {
-      return days[dayIndex];
     } else {
-      return "";
+      return `${-weekdayDiff} days before`;
     }
-  }
-}
-
-function makeLocaltimeStr(localtime: number): string {
-  let localtimeNormalized;
-  if (localtime >= 2400) {
-    localtimeNormalized = localtime % 2400;
-  } else if (localtime < 0) {
-    localtimeNormalized = (localtime % 2400) + 2400;
   } else {
-    localtimeNormalized = localtime;
-  }
-  if (localtimeNormalized < 10) {
-    return `000${localtimeNormalized}`;
-  } else if (localtimeNormalized < 100) {
-    return `00${localtimeNormalized}`;
-  } else if (localtimeNormalized < 1000) {
-    return `0${localtimeNormalized}`;
-  } else {
-    return `${localtimeNormalized}`;
+    return "";
   }
 }
 
@@ -111,50 +99,64 @@ export default function App() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const localnow = DateTime.local().setZone("UTC");
-  const defaultTime = localnow.hour * 100;
-  const [time, setTime] = useState(
-    parseTime(searchParams.get("zulu")) ?? defaultTime,
+  const localNow = DateTime.local().setZone("UTC");
+
+  const paramTime = parseTime(searchParams.get("zulu"));
+  const [selectedTime, setSelectedTime] = useState(
+    paramTime !== undefined
+      ? localNow.set({
+          hour: Math.floor(paramTime % 100),
+          minute: paramTime % 100,
+        })
+      : localNow.set({ minute: 0 }),
   );
+  const selectedTimeStr = selectedTime.toFormat("HHmm");
   useEffect(() => {
     setSearchParams((params) => {
-      params.set("zulu", `${time}`);
+      params.set("zulu", selectedTimeStr);
       return params;
     });
-  }, [setSearchParams, time]);
+  }, [setSearchParams, selectedTimeStr]);
 
-  const [timeStr, setTimeStr] = useState(time.toString());
-
-  const [dayIndex, setDayIndex] = useState<number | undefined>(
-    parseDayIndex(searchParams.get("day")),
-  );
+  const [selectedWeekday, setSelectedWeekday] = useState<
+    WeekdayNumbers | undefined
+  >(parseDayIndex(searchParams.get("day")));
   useEffect(() => {
     setSearchParams((params) => {
-      if (dayIndex !== undefined) {
-        params.set("day", `${dayIndex}`);
+      if (selectedWeekday !== undefined) {
+        params.set("day", `${selectedWeekday}`);
       } else {
         params.delete("day");
       }
       return params;
     });
-  }, [setSearchParams, dayIndex]);
-  const day = dayIndex !== undefined ? days[dayIndex] : "";
-
-  const [isTimeError, setIsTimeError] = useState(false);
+  }, [setSearchParams, selectedWeekday]);
+  const selectedWeekdayStr =
+    selectedWeekday !== undefined ? weekdayStrs[selectedWeekday - 1] : "";
 
   const localtz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const paramTz = searchParams.get("tz") ?? "";
-  const [tz, setTz] = useState(isTimezoneValid(paramTz) ? paramTz : localtz);
+  const [selectedTz, setSelectedTz] = useState(
+    isTimezoneValid(paramTz) ? paramTz : localtz,
+  );
   useEffect(() => {
     setSearchParams((params) => {
-      params.set("tz", tz);
+      params.set("tz", selectedTz);
       return params;
     });
-  }, [setSearchParams, tz]);
-  const tzoffset = getTimezoneOffset(tz);
-  const localtime = time + tzoffset * 100;
-  const dayStr = makeDayStr(dayIndex, localtime);
-  const localtimeStr = makeLocaltimeStr(localtime);
+  }, [setSearchParams, selectedTz]);
+
+  const convertedTime = selectedTime
+    .set({ weekday: selectedWeekday })
+    .setZone(selectedTz);
+  const convertedWeekdayStr =
+    selectedWeekday !== undefined
+      ? weekdayStrs[convertedTime.weekday - 1]
+      : makeDayStr(convertedTime.weekday - selectedTime.weekday);
+  const convertedTimeStr = convertedTime.toFormat("HHmm");
+
+  const [inputTimeStr, setInputTimeStr] = useState(selectedTimeStr);
+  const [isInputTimeError, setIsInputTimeError] = useState(false);
 
   const tzSearchRef = useRef<HTMLDetailsElement>(null);
   const [tzSearch, setTzSearch] = useState("");
@@ -180,27 +182,32 @@ export default function App() {
             <label
               className={classNames(
                 "input input-bordered flex items-center gap-2",
-                isTimeError && "input-error",
+                isInputTimeError && "input-error",
               )}
             >
               <input
                 type="text"
                 className="w-full"
-                value={timeStr}
+                value={inputTimeStr}
                 onChange={(e) => {
                   const value = e.target.value;
                   const valueInt = parseInt(value);
-                  setTimeStr(value);
+                  setInputTimeStr(value);
                   if (
                     /^\d+$/.test(value) &&
                     !isNaN(valueInt) &&
                     valueInt >= 0 &&
                     valueInt < 2400
                   ) {
-                    setTime(valueInt);
-                    setIsTimeError(false);
+                    setSelectedTime(
+                      localNow.set({
+                        hour: Math.floor(valueInt / 100),
+                        minute: valueInt % 100,
+                      }),
+                    );
+                    setIsInputTimeError(false);
                   } else {
-                    setIsTimeError(true);
+                    setIsInputTimeError(true);
                   }
                 }}
               />
@@ -214,24 +221,20 @@ export default function App() {
             </div>
             <select
               className="select select-bordered w-full"
-              value={day}
+              value={selectedWeekday}
               onChange={(e) => {
                 const value = e.target.value;
-                if (value === "") {
-                  setDayIndex(undefined);
-                } else {
-                  setDayIndex(days.indexOf(e.target.value));
-                }
+                setSelectedWeekday(parseDayIndex(value));
               }}
             >
-              <option></option>
-              <option>Monday</option>
-              <option>Tuesday</option>
-              <option>Wednesday</option>
-              <option>Thursday</option>
-              <option>Friday</option>
-              <option>Saturday</option>
-              <option>Sunday</option>
+              <option value=""></option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+              <option value="7">Sunday</option>
             </select>
           </div>
           <span className="grow" />
@@ -257,9 +260,9 @@ export default function App() {
         <div className="flex">
           <details ref={tzSearchRef} className="dropdown mb-1 mr-1 flex-1">
             <summary className="btn btn-ghost w-full justify-start rounded-md border border-base-content/20 text-base font-normal">
-              <span>{tz}</span>
+              <span>{selectedTz}</span>
               <span className="grow" />
-              <span>{formatNumberWithSign(tzoffset)}</span>
+              <span>{formatNumberWithSign(convertedTime.offset / 60)}</span>
             </summary>
             <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
               <input
@@ -279,7 +282,8 @@ export default function App() {
                     <li key={tzName} className="w-full">
                       <button
                         onClick={() => {
-                          setTz(tzName);
+                          setSelectedTz(tzName);
+                          setTzSearch("");
                           tzSearchRef.current?.removeAttribute("open");
                         }}
                       >
@@ -297,7 +301,7 @@ export default function App() {
           <button
             className="btn"
             onClick={() => {
-              setTz(localtz);
+              setSelectedTz(localtz);
             }}
           >
             Local
@@ -311,13 +315,13 @@ export default function App() {
         <div className="divider" />
         <div className="flex items-center">
           <div>
-            {time}Z {day}
+            {selectedTimeStr}Z {selectedWeekdayStr}
           </div>
           <div className="divider divider-horizontal">
             <ArrowRightIcon className="w-16" />
           </div>
           <div className="text-lg font-bold">
-            {localtimeStr} {dayStr} in {tz}
+            {convertedTimeStr} {convertedWeekdayStr} in {selectedTz}
           </div>
         </div>
       </div>
