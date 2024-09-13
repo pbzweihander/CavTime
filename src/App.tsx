@@ -1,4 +1,8 @@
-import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
+import {
+  ClipboardDocumentIcon,
+  MoonIcon,
+  SunIcon,
+} from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime, WeekdayNumbers } from "luxon";
@@ -91,6 +95,11 @@ function isTimezoneValid(tz: string | undefined | null): boolean {
   return DateTime.local().setZone(tz).isValid;
 }
 
+function getLocationWithoutSearchParams(): string {
+  const location = window.location;
+  return `${location.protocol}//${location.host}${location.pathname}`;
+}
+
 export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") ?? "light");
   useEffect(() => {
@@ -164,6 +173,11 @@ export default function App() {
 
   const tzSearchRef = useRef<HTMLDetailsElement>(null);
   const [tzSearch, setTzSearch] = useState("");
+
+  const copyRef = useRef<HTMLDetailsElement>(null);
+  const [copyZuluChecked, setCopyZuluChecked] = useState(true);
+  const [copyWeekdayChecked, setCopyWeekdayChecked] = useState(true);
+  const [copyTimezoneChecked, setCopyTimezoneChecked] = useState(false);
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-base-200 lg:py-10">
@@ -268,7 +282,7 @@ export default function App() {
               <span className="grow" />
               <span>{formatNumberWithSign(convertedTime.offset / 60)}</span>
             </summary>
-            <div className="dropdown-content w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
+            <div className="dropdown-content z-[1] w-full rounded-md border border-base-content/20 bg-base-100 px-2 pb-1 pt-2">
               <input
                 type="text"
                 className="input input-sm input-bordered mb-1 w-full"
@@ -328,6 +342,71 @@ export default function App() {
             {convertedTimeStr} {convertedWeekdayStr} in {selectedTz}
           </div>
         </div>
+        <div className="divider" />
+        <details ref={copyRef} className="dropdown dropdown-top w-full">
+          <summary className="btn btn-sm w-full">
+            <ClipboardDocumentIcon className="w-5" /> Copy URL with...
+          </summary>
+          <div className="dropdown-content form-control w-full rounded-md border border-base-content/20 bg-base-100 p-2">
+            <label className="label cursor-pointer">
+              <span className="label-text">Zulu</span>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={copyZuluChecked}
+                onChange={(e) => {
+                  setCopyZuluChecked(e.target.checked);
+                }}
+              />
+            </label>
+            <label className="label cursor-pointer">
+              <span className="label-text">Weekday</span>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={copyWeekdayChecked}
+                onChange={(e) => {
+                  setCopyWeekdayChecked(e.target.checked);
+                }}
+              />
+            </label>
+            <label className="label cursor-pointer">
+              <span className="label-text">Timezone</span>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={copyTimezoneChecked}
+                onChange={(e) => {
+                  setCopyTimezoneChecked(e.target.checked);
+                }}
+              />
+            </label>
+            <button
+              className="btn w-full"
+              onClick={() => {
+                const location = getLocationWithoutSearchParams();
+                const params = [];
+                if (copyZuluChecked) {
+                  params.push(`zulu=${selectedTimeStr}`);
+                }
+                if (copyWeekdayChecked && selectedWeekday !== undefined) {
+                  params.push(`day=${selectedWeekday}`);
+                }
+                if (copyTimezoneChecked) {
+                  params.push(`tz=${encodeURIComponent(selectedTz)}`);
+                }
+                navigator.clipboard
+                  .writeText(`${location}#/?${params.join("&")}`)
+                  .then(() => {
+                    copyRef.current?.removeAttribute("open");
+                  });
+              }}
+            >
+              <ClipboardDocumentIcon className="w-5" />
+              Copy
+            </button>
+          </div>
+        </details>
       </div>
     </div>
   );
