@@ -2,7 +2,7 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import classNames from "classnames";
 import { DateTime, WeekdayNumbers } from "luxon";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import tzdata from "tzdata";
 
@@ -102,49 +102,53 @@ export default function App() {
   const localNow = DateTime.local().setZone("UTC");
 
   const paramTime = parseTime(searchParams.get("zulu"));
-  const [selectedTime, setSelectedTime] = useState(
+  const selectedTime =
     paramTime !== undefined
       ? localNow.set({
-          hour: Math.floor(paramTime % 100),
+          hour: Math.floor(paramTime / 100),
           minute: paramTime % 100,
         })
-      : localNow.set({ minute: 0 }),
+      : localNow.set({ minute: 0 });
+  const setSelectedTime = useCallback(
+    (time: DateTime) => {
+      setSearchParams((params) => {
+        params.set("zulu", time.toFormat("HHmm"));
+        return params;
+      });
+    },
+    [setSearchParams],
   );
   const selectedTimeStr = selectedTime.toFormat("HHmm");
-  useEffect(() => {
-    setSearchParams((params) => {
-      params.set("zulu", selectedTimeStr);
-      return params;
-    });
-  }, [setSearchParams, selectedTimeStr]);
 
-  const [selectedWeekday, setSelectedWeekday] = useState<
-    WeekdayNumbers | undefined
-  >(parseDayIndex(searchParams.get("day")));
-  useEffect(() => {
-    setSearchParams((params) => {
-      if (selectedWeekday !== undefined) {
-        params.set("day", `${selectedWeekday}`);
-      } else {
-        params.delete("day");
-      }
-      return params;
-    });
-  }, [setSearchParams, selectedWeekday]);
+  const selectedWeekday = parseDayIndex(searchParams.get("day"));
+  const setSelectedWeekday = useCallback(
+    (weekday: WeekdayNumbers | undefined) => {
+      setSearchParams((params) => {
+        if (weekday !== undefined) {
+          params.set("day", `${weekday}`);
+        } else {
+          params.delete("day");
+        }
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
   const selectedWeekdayStr =
     selectedWeekday !== undefined ? weekdayStrs[selectedWeekday - 1] : "";
 
   const localtz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const paramTz = searchParams.get("tz") ?? "";
-  const [selectedTz, setSelectedTz] = useState(
-    isTimezoneValid(paramTz) ? paramTz : localtz,
+  const selectedTz = isTimezoneValid(paramTz) ? paramTz : localtz;
+  const setSelectedTz = useCallback(
+    (tz: string) => {
+      setSearchParams((params) => {
+        params.set("tz", tz);
+        return params;
+      });
+    },
+    [setSearchParams],
   );
-  useEffect(() => {
-    setSearchParams((params) => {
-      params.set("tz", selectedTz);
-      return params;
-    });
-  }, [setSearchParams, selectedTz]);
 
   const convertedTime = selectedTime
     .set({ weekday: selectedWeekday })
